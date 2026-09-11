@@ -126,9 +126,15 @@
           <div class="tool-layout">
             <article class="panel tool-card"><div class="tool-icon blue">↗</div><h3>Inspect a URL</h3><p>Enter a public URL to generate a preview for the support team.</p>
               <form id="urlPreviewForm" class="stack-form">
-                <!-- VULNERABILITY HOOK (SSRF): Part 2 sends this untrusted URL to
-                     POST /api/tools/preview, where the vulnerable server fetches it
-                     without protocol, host, redirect, or private-network validation. -->
+                <!--
+                    VULNERABLE VERSION:
+                    The server previously fetched this URL without validating its
+                    protocol, destination port, resolved IP address, or redirects.
+                    SECURE VERSION:
+                    The server permits only HTTP/HTTPS public destinations, blocks
+                    restricted networks, disables redirects, and pins the connection
+                    to the IP address that passed validation.
+                -->
                 <label class="field"><span>URL to inspect</span><span class="input-shell"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.2 1.4 1.4 1.1-1.1a3 3 0 0 1 4.3 4.2l-2 2a3 3 0 0 1-4.3 0L10 13Zm4-2a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.2-1.4-1.4-1.1 1.1a3 3 0 0 1-4.3-4.2l2-2a3 3 0 0 1 4.3 0L14 11Z"/></svg><input id="previewUrl" type="text" placeholder="https://example.com/article" required></span></label>
                 <button class="button button-primary" type="submit">Generate preview</button>
               </form>

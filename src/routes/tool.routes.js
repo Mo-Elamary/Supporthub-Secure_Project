@@ -4,6 +4,12 @@ const net = require('net');
 const { execFile } = require('child_process');
 const requireSession = require('../middleware/require-session');
 
+const {
+  validatePublicUrl,
+  createPinnedAgent
+} = require('../security/safe-url');
+
+
 const router = express.Router();
 router.use(requireSession);
 
@@ -29,30 +35,88 @@ function isValidDiagnosticHost(value) {
 }
 
 router.post('/preview', async (req, res, next) => {
-  const url = String(req.body.url || '');
-  if (!url) return res.status(400).json({ error: 'A URL is required.' });
+  const url = String(req.body.url || '').trim();
+
+  if (!url) {
+    return res.status(400).json({
+      error: 'A URL is required.'
+    });
+  }
 
   try {
-    // INTENTIONALLY VULNERABLE (SSRF): the server fetches the user-controlled URL
-    // without validating protocol, hostname, redirects, or private IP ranges.
-    const response = await axios.get(url, {
+    // VULNERABLE VERSION (kept as a commented training reference):
+    // The server previously fetched a complete user-controlled URL without
+    // validating its protocol, port, hostname, resolved IP, or redirects.
+    //
+    // const response = await axios.get(url, {
+    //   timeout: 4000,
+    //   maxContentLength: 200000,
+    //   responseType: 'text',
+    //   validateStatus: () => true
+    // });
+
+    // SECURE VERSION:
+    // Parse and validate the URL, resolve its hostname, and reject private
+    // or restricted addresses before creating an outbound connection.
+    const validated = await validatePublicUrl(url);
+
+    // Pin the request to the IP address that was validated. This prevents
+    // the HTTP client from resolving the hostname again to a different IP.
+    const agent = createPinnedAgent(
+      validated.protocol,
+      validated.address,
+      validated.family
+    );
+
+    const agentOptions =
+      validated.protocol === 'https:'
+        ? { httpsAgent: agent }
+        : { httpAgent: agent };
+
+    const response = await axios.get(validated.url, {
       timeout: 4000,
       maxContentLength: 200000,
+      maxBodyLength: 200000,
       responseType: 'text',
-      validateStatus: () => true
+      validateStatus: () => true,
+
+      // Redirects are disabled because every new destination would require
+      // another complete protocol, port, DNS, and IP validation.
+      maxRedirects: 0,
+
+      // Ignore environment proxy settings so the validated pinned
+      // connection is used directly.
+      proxy: false,
+
+      ...agentOptions
     });
 
-    const html = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    const descriptionMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i);
+    const html =
+      typeof response.data === 'string'
+        ? response.data
+        : JSON.stringify(response.data);
+
+    const titleMatch = html.match(
+      /<title[^>]*>([^<]*)<\/title>/i
+    );
+
+    const descriptionMatch = html.match(
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i
+    );
 
     res.json({
-      requestedUrl: url,
-      finalUrl: response.request?.res?.responseUrl || url,
+      requestedUrl: validated.url,
+
+      // Redirects are disabled, so the final destination must remain
+      // identical to the validated destination.
+      finalUrl: validated.url,
+
       status: response.status,
-      contentType: response.headers['content-type'] || 'unknown',
+      contentType:
+        response.headers['content-type'] || 'unknown',
       title: titleMatch?.[1] || 'No page title',
-      description: descriptionMatch?.[1] || html.slice(0, 500)
+      description:
+        descriptionMatch?.[1] || html.slice(0, 500)
     });
   } catch (error) {
     next(error);
