@@ -210,24 +210,6 @@ analytics
 
 Expected result: ticket `#SH-2048` is returned.
 
-## Evidence to Capture
-
-Add the following screenshots after the manual retest:
-
-```text
-docs/screenshots/remediation/SQL-Injection/SQL-Injection-Fix_Part-1.png
-docs/screenshots/remediation/SQL-Injection/SQL-Injection-Fix_Part-2.png
-docs/screenshots/remediation/SQL-Injection/SQL-Injection-Fix_Part-3.png
-docs/screenshots/remediation/SQL-Injection/SQL-Injection-Fix_Part-4.png
-```
-
-Recommended evidence:
-
-1. The former login payload being rejected.
-2. A valid login succeeding after the fix.
-3. The former search payload returning no unrelated tickets.
-4. The automated test suite passing.
-
 ## Result
 
 SQL Injection is remediated in both affected endpoints. User-controlled values no

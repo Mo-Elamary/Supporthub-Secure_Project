@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const morgan = require('morgan');
@@ -57,15 +58,49 @@ app.use('/api', (req, res) => {
   res.status(404).json({ error: 'API route not found', path: req.originalUrl });
 });
 
-// INTENTIONALLY VULNERABLE (Information Disclosure): detailed exception data
-// is returned to the browser. The secure edition will log this only on the server.
+// VULNERABLE VERSION (kept as a commented training reference):
+// The handler returned the exception message, error type, stack trace,
+// request path, and server working directory directly to the browser.
+//
+// app.use((error, req, res, next) => {
+//   res.status(error.status || 500).json({
+//     error: error.message,
+//     name: error.name,
+//     stack: error.stack,
+//     path: req.originalUrl,
+//     workingDirectory: process.cwd()
+//   });
+// });
+
+// SECURE VERSION:
+// Detailed exception information is written only to protected server logs.
+// The browser receives a generic message and a reference identifier.
 app.use((error, req, res, next) => {
-  res.status(error.status || 500).json({
-    error: error.message,
-    name: error.name,
-    stack: error.stack,
+  const requestId = crypto.randomUUID();
+
+  const requestedStatus = Number(error.status);
+  const status =
+    Number.isInteger(requestedStatus) &&
+    requestedStatus >= 400 &&
+    requestedStatus <= 599
+      ? requestedStatus
+      : 500;
+
+  console.error(`[${requestId}] Request failed`, {
+    method: req.method,
     path: req.originalUrl,
-    workingDirectory: process.cwd()
+    status,
+    name: error.name,
+    message: error.message,
+    stack: error.stack
+  });
+
+  res.status(status).json({
+    error:
+      status >= 500
+        ? 'An unexpected error occurred.'
+        : error.message,
+    requestId
   });
 });
 

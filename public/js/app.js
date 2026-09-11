@@ -207,18 +207,29 @@ async function loadSystemInfo() {
   try {
     const data = await api('/api/system/info');
     const values = document.querySelectorAll('.details-panel dd');
-    const details = [data.application, data.environment, data.runtime, data.database, data.hostname, data.debugMode ? 'Enabled' : 'Disabled'];
+    const details = [data.application, data.environment, data.serviceStatus, data.databaseStatus, data.diagnostics, data.debugMode ? 'Enabled' : 'Disabled'];
     values.forEach((element, index) => { element.textContent = details[index]; });
   } catch (error) { showToast(error.message, 'info'); }
 }
 
 document.querySelector('#refreshSystem').addEventListener('click', async () => { await loadSystemInfo(); showToast('System status refreshed.'); });
-document.querySelector('#triggerError').addEventListener('click', async () => {
-  const output = document.querySelector('#errorOutput'); output.hidden = false;
-  const response = await fetch('/api/system/error-test');
-  const data = await response.json();
-  output.textContent = `${data.name}: ${data.error}\n${data.stack || ''}\nWorking directory: ${data.workingDirectory || 'unknown'}`;
-});
+document
+  .querySelector('#triggerError')
+  .addEventListener('click', async () => {
+    const output = document.querySelector('#errorOutput');
+    output.hidden = false;
+
+    try {
+      const response = await fetch('/api/system/error-test');
+      const data = await response.json();
+
+      output.textContent =
+        `${data.error}\nReference ID: ${data.requestId}`;
+    } catch {
+      output.textContent =
+        'The error service is temporarily unavailable.';
+    }
+  });
 
 async function loadProfile() {
   try {
