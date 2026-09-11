@@ -19,18 +19,37 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// VULNERABLE VERSION (kept as a commented training reference):
+// The cookie had no SameSite protection and an empty session could be
+// created before authentication.
+//
+// app.use(session({
+//   secret:
+//     process.env.SESSION_SECRET ||
+//     'supporthub-training-secret',
+//   resave: false,
+//   saveUninitialized: true,
+//   cookie: {
+//     httpOnly: true,
+//     sameSite: false,
+//     secure: false,
+//     maxAge: 1000 * 60 * 60 * 4
+//   }
+// }));
+
+// SECURE VERSION:
+// SameSite=Lax adds browser-level CSRF protection.
+// The CSRF token remains the primary protection for state changes.
 app.use(session({
-  // INTENTIONALLY WEAK FOR THE VULNERABLE LAB.
-  // The secure edition will move this secret to a strong environment value,
-  // rotate it, use a persistent store, and harden the cookie settings.
-  secret: process.env.SESSION_SECRET || 'supporthub-training-secret',
+  secret:
+    process.env.SESSION_SECRET ||
+    'supporthub-training-secret',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    // INTENTIONALLY VULNERABLE (CSRF): no SameSite protection is applied.
-    sameSite: false,
-    secure: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 1000 * 60 * 60 * 4
   }
 }));

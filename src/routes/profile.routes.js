@@ -1,5 +1,7 @@
 const express = require('express');
 const requireSession = require('../middleware/require-session');
+const requireCsrfToken =
+  require('../middleware/require-csrf-token');
 const { db, assertDatabaseReady } = require('../database/database');
 
 const router = express.Router();
@@ -33,9 +35,19 @@ router.get('/team', (req, res) => {
   res.json({ companyName: 'NexaCare Solutions', members });
 });
 
-router.post('/update', (req, res) => {
-  // INTENTIONALLY VULNERABLE (CSRF): this state-changing endpoint relies only on
-  // the session cookie. It has no CSRF token or Origin/Referer validation.
+// VULNERABLE VERSION (kept as a commented training reference):
+// The endpoint previously relied only on the session cookie.
+// router.post('/update', (req, res) => {
+
+// SECURE VERSION:
+// A valid session and its matching CSRF token are both required.
+router.post(
+  '/update',
+  requireCsrfToken,
+  (req, res) => {
+// CSRF protection runs before any database operation.
+// Requests with missing, invalid, or cross-origin tokens stop here
+// and cannot modify the authenticated user's profile.
   assertDatabaseReady();
   const current = db.prepare(`SELECT u.email, p.first_name AS firstName,
     p.last_name AS lastName, p.job_title AS jobTitle, p.timezone

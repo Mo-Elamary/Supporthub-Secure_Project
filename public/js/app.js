@@ -1,5 +1,6 @@
 let tickets = [];
 let currentUser = null;
+let csrfToken = null;
 
 const pageTitles = {
   overview: 'Overview', tickets: 'Tickets', 'url-preview': 'URL Preview', diagnostics: 'Diagnostics',
@@ -265,15 +266,43 @@ async function loadProfile() {
   } catch (error) { showToast(error.message, 'info'); }
 }
 
-document.querySelector('#profileForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const body = Object.fromEntries(new FormData(event.target).entries());
-  try {
-    // INTENTIONALLY VULNERABLE (CSRF): no CSRF token is sent with this state change.
-    await api('/api/profile/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    showToast('Profile changes saved.');
-  } catch (error) { showToast(error.message, 'info'); }
-});
+document
+  .querySelector('#profileForm')
+  .addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const body = Object.fromEntries(
+      new FormData(event.target).entries()
+    );
+
+    try {
+      // VULNERABLE VERSION (kept as a commented training reference):
+      // The request relied only on the session cookie.
+      //
+      // await api('/api/profile/update', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(body)
+      // });
+
+      // SECURE VERSION:
+      // The session-specific CSRF token is sent in a custom header.
+      await api('/api/profile/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify(body)
+      });
+
+      showToast('Profile changes saved.');
+    } catch (error) {
+      showToast(error.message, 'info');
+    }
+  });
 
 document.querySelector('#notificationButton').addEventListener('click', () => showToast('You have 3 new ticket updates.', 'info'));
 document.querySelector('#sidebarUser').addEventListener('click', () => openPage('profile'));
@@ -283,6 +312,8 @@ function showToast(message, type = 'success') { const toast = document.createEle
   try {
     const auth = await api('/api/auth/me');
     currentUser = auth.user;
+    const csrf = await api('/api/auth/csrf-token');
+    csrfToken = csrf.csrfToken;
     document.querySelector('#currentUserName').textContent = currentUser.name;
     document.querySelector('#currentUserRole').textContent = currentUser.role;
     document.querySelector('#currentUserInitials').textContent = currentUser.initials;

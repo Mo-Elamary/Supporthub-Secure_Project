@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const { db, assertDatabaseReady } = require('../database/database');
 const { verifyPassword } = require('../security/password');
@@ -46,7 +47,9 @@ router.post('/login', (req, res) => {
     role: user.role,
     initials: user.initials
   };
-
+// Generate a new CSRF token whenever a user signs in.
+  req.session.csrfToken =
+  crypto.randomBytes(32).toString('hex');
   res.json({ message: 'Signed in successfully.', user: req.session.user });
 });
 
@@ -54,6 +57,25 @@ router.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not signed in.' });
   res.json({ user: req.session.user });
 });
+
+router.get('/csrf-token', (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({
+      error: 'Not signed in.'
+    });
+  }
+
+  if (!req.session.csrfToken) {
+    req.session.csrfToken =
+      crypto.randomBytes(32).toString('hex');
+  }
+
+  res.set('Cache-Control', 'no-store');
+
+  res.json({
+    csrfToken: req.session.csrfToken
+  });
+}); 
 
 router.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ message: 'Signed out.' }));
