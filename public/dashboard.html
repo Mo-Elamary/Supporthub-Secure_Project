@@ -166,9 +166,14 @@
           <div class="template-layout">
             <article class="panel template-editor"><div class="panel-head"><div><h3>Template editor</h3><p>Use ticket fields to personalize the report.</p></div><span class="badge badge-neutral">Draft</span></div>
               <form id="templateForm" class="stack-form">
-                <!-- VULNERABILITY HOOK (SSTI): Part 2 sends this template to
-                     POST /api/templates/render. The vulnerable server will render
-                     user-controlled template syntax instead of treating it as text. -->
+                <!--
+                  VULNERABLE VERSION:
+                  The server previously compiled the complete user-controlled text
+                  as a Nunjucks template.
+                  SECURE VERSION:
+                  The server treats the body as text and replaces only explicitly
+                  approved placeholders without invoking a template engine.
+                -->
                 <label class="field"><span>Report title</span><input id="templateTitle" type="text" value="Ticket Resolution Summary"></label>
                 <label class="field"><span>Template body</span><textarea id="templateBody" class="code-area" rows="11">Hello {{ customerName }},
 
