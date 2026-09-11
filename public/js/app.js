@@ -177,14 +177,36 @@ document.querySelector('#urlPreviewForm').addEventListener('submit', async (even
 });
 
 document.querySelectorAll('.recent-values button').forEach((button) => button.addEventListener('click', () => { document.querySelector('#diagnosticHost').value = button.textContent; }));
-document.querySelector('#diagnosticForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const host = document.querySelector('#diagnosticHost').value.trim();
-  const output = document.querySelector('#terminalOutput');
-  output.textContent = `Running connectivity test for ${host}...`;
-  try { const data = await api('/api/tools/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host }) }); output.textContent = `$ ${data.command}\n${data.output}`; }
-  catch (error) { output.textContent = error.message; }
-});
+document
+  .querySelector('#diagnosticForm')
+  .addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const host = document
+      .querySelector('#diagnosticHost')
+      .value
+      .trim();
+
+    const output = document.querySelector('#terminalOutput');
+
+    output.textContent =
+      `Running connectivity test for ${host}...`;
+
+    try {
+      const data = await api('/api/tools/ping', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ host })
+      });
+
+      output.textContent =
+        `Target: ${data.target}\n${data.output}`;
+    } catch (error) {
+      output.textContent = error.message;
+    }
+  });
 document.querySelector('#clearTerminal').addEventListener('click', () => { document.querySelector('#terminalOutput').innerHTML = '<span class="terminal-muted">Ready. Run a diagnostic to see the result.</span>'; });
 
 document.querySelectorAll('[data-variable]').forEach((button) => button.addEventListener('click', () => {
