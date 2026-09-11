@@ -108,19 +108,63 @@ router.get('/:ticketId/comments', (req, res) => {
 });
 
 router.post('/:ticketId/comments', (req, res) => {
-  const body = String(req.body.body || '');
-  if (!body.trim()) return res.status(400).json({ error: 'Comment cannot be empty.' });
+  const body = String(req.body.body || '').trim();
 
-  // INTENTIONALLY VULNERABLE (Stored XSS): user-controlled HTML is stored exactly
-  // as submitted. The vulnerable browser later inserts this value using innerHTML.
+  if (!body) {
+    return res.status(400).json({
+      error: 'Comment cannot be empty.'
+    });
+  }
+
+  if (body.length > 2000) {
+    return res.status(400).json({
+      error: 'Comment cannot exceed 2000 characters.'
+    });
+  }
+
+  // VULNERABLE VERSION (kept as a commented training reference):
+  // The server previously stored user-controlled HTML and the browser
+  // inserted it using innerHTML. The combination allowed Stored XSS.
+  //
+  // const body = String(req.body.body || '');
+  // The value was stored and later treated as executable HTML.
+
+  // SECURE VERSION:
+  // Comments are plain text. Storing their original text is safe because
+  // the browser now renders the value through textContent rather than HTML.
   assertDatabaseReady();
-  const result = db.prepare(`INSERT INTO comments
-    (ticket_id, user_id, customer_id, author_name, author_role, body, created_label)
-    VALUES (?, ?, NULL, ?, 'staff', ?, 'Just now')`)
-    .run(req.params.ticketId, req.session.user.id, req.session.user.name, body);
 
-  const comment = { id: result.lastInsertRowid, author: req.session.user.name, role: 'staff', body, createdAt: 'Just now' };
-  res.status(201).json({ message: 'Reply added.', comment });
+  const result = db.prepare(`
+    INSERT INTO comments
+      (
+        ticket_id,
+        user_id,
+        customer_id,
+        author_name,
+        author_role,
+        body,
+        created_label
+      )
+    VALUES (?, ?, NULL, ?, 'staff', ?, 'Just now')
+  `).run(
+    req.params.ticketId,
+    req.session.user.id,
+    req.session.user.name,
+    body
+  );
+
+  const comment = {
+    id: result.lastInsertRowid,
+    author: req.session.user.name,
+    role: 'staff',
+    body,
+    createdAt: 'Just now'
+  };
+
+  res.status(201).json({
+    message: 'Reply added.',
+    comment
+  });
 });
 
 module.exports = router;

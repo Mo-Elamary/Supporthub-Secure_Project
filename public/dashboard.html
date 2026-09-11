@@ -113,9 +113,20 @@
             <div class="panel-head"><div><span class="ticket-id">#SH-2048</span><h3>Unable to access the course analytics dashboard</h3><p>Conversation preview · Customer: Youssef Adel, Orbit Academy</p></div><span class="badge badge-high">High priority</span></div>
             <div class="conversation" id="conversation"></div>
             <form id="commentForm" class="reply-box">
-              <!-- INTENTIONALLY VULNERABLE (DOM XSS): app.js renders this comment
-                   with innerHTML and no output encoding. This is for the local lab only. -->
-              <textarea id="commentInput" placeholder="Write a reply..." required></textarea>
+              <!--
+                  VULNERABLE VERSION:
+                  Stored comments were previously inserted into innerHTML without
+                  output encoding, allowing HTML and JavaScript execution.
+                  SECURE VERSION:
+                  Comments are limited on the server and rendered as plain text
+                  using DOM elements and textContent.
+              -->
+              <textarea
+                id="commentInput"
+                maxlength="2000"
+                placeholder="Write a reply..."
+                required
+              ></textarea>
               <div><span class="reply-hint">Visible to the customer</span><button class="button button-primary" type="submit">Send reply</button></div>
             </form>
           </article>

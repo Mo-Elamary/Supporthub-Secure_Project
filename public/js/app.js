@@ -126,31 +126,143 @@ document.querySelector('#newTicketForm').addEventListener('submit', async (event
   } catch (error) { showToast(error.message, 'info'); }
 });
 
-document.querySelector('#commentForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const value = document.querySelector('#commentInput').value.trim();
-  if (!value) return;
-  try {
-    const data = await api('/api/tickets/2048/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: value }) });
-    // INTENTIONALLY VULNERABLE (Stored XSS): data.comment.body came from the user,
-    // was stored by the server, and is inserted as HTML without output encoding.
-    document.querySelector('#conversation').insertAdjacentHTML('beforeend', `<div class="message staff"><span class="avatar avatar-indigo">${escapeHtml(currentUser.initials)}</span><div><div class="message-meta"><strong>${escapeHtml(currentUser.name)}</strong><small>Just now</small></div><div class="message-bubble">${data.comment.body}</div></div></div>`);
-    event.target.reset(); showToast('Reply added to the conversation.');
-  } catch (error) { showToast(error.message, 'info'); }
-});
+function createCommentElement(comment) {
+  const isStaff = comment.role === 'staff';
+
+  const message = document.createElement('div');
+  message.className = isStaff
+    ? 'message staff'
+    : 'message';
+
+  const avatar = document.createElement('span');
+  avatar.className = isStaff
+    ? 'avatar avatar-indigo'
+    : 'avatar avatar-cyan';
+
+  // textContent treats the value as text rather than HTML.
+  avatar.textContent = getInitials(comment.author);
+
+  const content = document.createElement('div');
+
+  const metadata = document.createElement('div');
+  metadata.className = 'message-meta';
+
+  const author = document.createElement('strong');
+  author.textContent = String(comment.author || '');
+
+  const createdAt = document.createElement('small');
+  createdAt.textContent = String(comment.createdAt || '');
+
+  metadata.append(author, createdAt);
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble';
+
+  // SECURITY BOUNDARY:
+  // Never replace this assignment with innerHTML.
+  bubble.textContent = String(comment.body || '');
+
+  content.append(metadata, bubble);
+  message.append(avatar, content);
+
+  return message;
+}
+
+document
+  .querySelector('#commentForm')
+  .addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const value = document
+      .querySelector('#commentInput')
+      .value
+      .trim();
+
+    if (!value) return;
+
+    try {
+      const data = await api(
+        '/api/tickets/2048/comments',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            body: value
+          })
+        }
+      );
+
+      // VULNERABLE VERSION (kept as a commented training reference):
+      // data.comment.body was inserted as executable HTML.
+      //
+      // document
+      //   .querySelector('#conversation')
+      //   .insertAdjacentHTML(
+      //     'beforeend',
+      //     `<div class="message staff">
+      //        <span class="avatar avatar-indigo">
+      //          ${escapeHtml(currentUser.initials)}
+      //        </span>
+      //        <div>
+      //          <div class="message-meta">
+      //            <strong>${escapeHtml(currentUser.name)}</strong>
+      //            <small>Just now</small>
+      //          </div>
+      //          <div class="message-bubble">
+      //            ${data.comment.body}
+      //          </div>
+      //        </div>
+      //      </div>`
+      //   );
+
+      // SECURE VERSION:
+      // The comment is rendered using textContent inside DOM elements.
+      document
+        .querySelector('#conversation')
+        .append(createCommentElement(data.comment));
+
+      event.target.reset();
+      showToast('Reply added to the conversation.');
+    } catch (error) {
+      showToast(error.message, 'info');
+    }
+  });
 
 async function loadComments() {
   try {
-    const data = await api('/api/tickets/2048/comments');
-    // INTENTIONALLY VULNERABLE (Stored XSS): stored comment bodies are rendered
-    // directly as HTML. Refreshing the page retrieves the malicious value again.
-    document.querySelector('#conversation').innerHTML = data.comments.map((comment) => `
-      <div class="message ${comment.role === 'staff' ? 'staff' : ''}">
-        <span class="avatar ${comment.role === 'staff' ? 'avatar-indigo' : 'avatar-cyan'}">${getInitials(comment.author)}</span>
-        <div><div class="message-meta"><strong>${escapeHtml(comment.author)}</strong><small>${escapeHtml(comment.createdAt)}</small></div>
-        <div class="message-bubble">${comment.body}</div></div>
-      </div>`).join('');
-  } catch (error) { showToast(error.message, 'info'); }
+    const data = await api(
+      '/api/tickets/2048/comments'
+    );
+
+    const conversation =
+      document.querySelector('#conversation');
+
+    // VULNERABLE VERSION (kept as a commented training reference):
+    // Stored comment bodies were inserted into innerHTML. A payload
+    // therefore executed again whenever the page was refreshed.
+    //
+    // conversation.innerHTML = data.comments
+    //   .map((comment) => `
+    //     <div class="message">
+    //       <div class="message-bubble">
+    //         ${comment.body}
+    //       </div>
+    //     </div>
+    //   `)
+    //   .join('');
+
+    // SECURE VERSION:
+    // Every stored comment becomes a DOM tree whose untrusted values
+    // are assigned only through textContent.
+    const commentElements =
+      data.comments.map(createCommentElement);
+
+    conversation.replaceChildren(...commentElements);
+  } catch (error) {
+    showToast(error.message, 'info');
+  }
 }
 
 async function loadTeam() {
